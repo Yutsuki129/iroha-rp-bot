@@ -67,7 +67,7 @@
             "X-Title": "RP Test Web"
           },
           body: JSON.stringify({
-            model: "openrouter/free",
+            model: "google/gemini-2.0-flash-lite",
             messages: messages
           })
         });
