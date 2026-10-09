@@ -33,7 +33,22 @@
 [THOUGHT: 你的內心OS與心機吐槽]
 [TALK: 一色伊呂波的實際發言]
 `.trim();
+const selectedLang = document.getElementById("language-select").value;
 
+// 可以在 systemPrompt 結尾動態插入這一句：
+const dynamicSystemPrompt = `
+${baseSystemPrompt}
+
+[當前語言指定]
+請必須使用「${selectedLang}」進行所有 [THOUGHT] 內心話與 [TALK] 對白的回覆。
+稱呼比企谷八幡時請符合該語言習慣（如日文/韓文/英文皆稱呼「先輩/선배/Senpai」）。
+`;
+
+// 組合 messages 時，確保第一則 system 訊息使用動態 prompt
+const currentMessages = [
+  { role: "system", content: dynamicSystemPrompt },
+  ...chatHistory // 歷史對話
+];
     let messages = [{ role: "system", content: systemPrompt }];
     let currentAffinity = 50;
 
