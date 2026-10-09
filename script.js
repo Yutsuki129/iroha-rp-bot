@@ -1,4 +1,5 @@
- const systemPrompt = `
+ // ==================== 1. 基礎設定與系統提示詞 ====================
+const systemPrompt = `
 你正在進行沉浸式角色扮演。
 角色名稱：一色伊呂波（一色いろは，Isshiki Iroha）。
 出處：《果然我的青春戀愛喜劇搞錯了。》（果青）。
@@ -33,79 +34,113 @@
 [THOUGHT: 你的內心OS與心機吐槽]
 [TALK: 一色伊呂波的實際發言]
 `.trim();
-const selectedLang = document.getElementById("language-select").value;
 
-// 可以在 systemPrompt 結尾動態插入這一句：
-const dynamicSystemPrompt = `
-${baseSystemPrompt}
+// 語言強制指示表
+const langInstructions = {
+  "日本語": "【言語の絶対規則】：思考OS(THOUGHT)と対話(TALK)は【必ず完全な日本語】で出力してください。中国語は一切使わないでください。原作の一色いろはの口調（「先輩」「無理です」「責任取ってください」）で話してください。",
+  "English": "【CRITICAL LANGUAGE RULE】: Both [THOUGHT] and [TALK] MUST be entirely in English. Do NOT use Chinese. Address Hachiman as 'Senpai'. Maintain Iroha's cheeky, playful tone.",
+  "한국어": "【절대 규칙】: [THOUGHT]와 [TALK]의 모든 내용은 반드시 한국어로 작성하세요. 중국어는 사용하지 마세요. 하치만을 '선배'라고 부르고 앙큼하고 귀여운 후배 말투를 쓰세요.",
+  "繁體中文": "【語言規則】：請全程使用台灣繁體中文回覆，語氣符合一色伊呂波原作風格。"
+};
 
-[當前語言指定]
-請必須使用「${selectedLang}」進行所有 [THOUGHT] 內心話與 [TALK] 對白的回覆。
-稱呼比企谷八幡時請符合該語言習慣（如日文/韓文/英文皆稱呼「先輩/선배/Senpai」）。
-`;
+// 頭像路徑設定
+const CHARACTER_AVATAR_URL = "avatar.png"; 
 
-// 組合 messages 時，確保第一則 system 訊息使用動態 prompt
-const currentMessages = [
-  { role: "system", content: dynamicSystemPrompt },
-  ...chatHistory // 歷史對話
-];
-    let messages = [{ role: "system", content: systemPrompt }];
-    let currentAffinity = 50;
+// 對話歷史紀錄與狀態
+let messagesHistory = []; 
+let currentAffinity = 50;
 
-    async function handleSend() {
-      const apiKeyInput = document.getElementById("api-key");
-      const userInput = document.getElementById("user-input");
-      const sendBtn = document.getElementById("send-btn");
+// ==================== 2. 發送對話處理函式 ====================
+async function handleSend() {
+  const apiKeyInput = document.getElementById("api-key");
+  const userInput = document.getElementById("user-input");
+  const sendBtn = document.getElementById("send-btn");
+  const langSelect = document.getElementById("language-select");
 
-      const apiKey = apiKeyInput.value.trim();
-      const text = userInput.value.trim();
+  const apiKey = apiKeyInput.value.trim();
+  const text = userInput.value.trim();
+  const selectedLang = langSelect ? langSelect.value : "繁體中文";
 
-      if (!apiKey) {
-        alert("請先填入 OpenRouter API Key！");
-        return;
-      }
-      if (!text) return;
+  if (!apiKey) {
+    alert("請先填入 OpenRouter API Key！");
+    return;
+  }
+  if (!text) return;
 
-      appendMessage("user", text);
-      const messageWithContext = `[系統提示：當前好感度為 ${currentAffinity}] ${text}`;
-      messages.push({ role: "user", content: messageWithContext });
-      userInput.value = "";
-      sendBtn.disabled = true;
+  // 1. 畫面渲染玩家輸入
+  appendMessage("user", text);
+  
+  // 2. 存入內部對話歷史（帶有好感度提示）
+  const messageWithContext = `[系統提示：當前好感度為 ${currentAffinity}] ${text}`;
+  messagesHistory.push({ role: "user", content: messageWithContext });
+  
+  userInput.value = "";
+  sendBtn.disabled = true;
 
-      try {
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-            "HTTP-Referer": window.location.href,
-            "X-Title": "RP Test Web"
-          },
-          body: JSON.stringify({
-            model: "deepseek/deepseek-chat",
-            messages: messages
-          })
-        });
+  // 3. 動態組合當前語言的 System Prompt
+  const currentLangRule = langInstructions[selectedLang] || langInstructions["繁體中文"];
+  const dynamicSystemPrompt = `${systemPrompt}\n\n[當前語言強制規範]\n${currentLangRule}`;
 
-        const data = await response.json();
+  // 4. 複製對話歷史，並在最後一則訊息加上語言錨點打破大模型慣性
+  const processedMessages = messagesHistory.map((msg, index) => {
+    if (index === messagesHistory.length - 1 && msg.role === "user") {
+      let reminder = "";
+      if (selectedLang === "日本語") reminder = " (※必ず日本語で返信してください)";
+      else if (selectedLang === "English") reminder = " (※Please reply strictly in English)";
+      else if (selectedLang === "한국어") reminder = " (※반드시 한국어로 답장하세요)";
 
-        if (!response.ok) {
-          throw new Error(data.error?.message || `狀態碼: ${response.status}`);
-        }
+      return { role: "user", content: msg.content + reminder };
+    }
+    return msg;
+  });
 
-        const reply = data.choices[0].message.content;
-        messages.push({ role: "assistant", content: reply });
-        parseAndRenderAIResponse(reply);
+  // 5. 組合最終發送陣列（第一筆永遠放最新的動態 system prompt）
+  const payloadMessages = [
+    { role: "system", content: dynamicSystemPrompt },
+    ...processedMessages
+  ];
 
-      } catch (err) {
-        appendMessage("ai", `[連線失敗] ${err.message}`);
-      } finally {
-        sendBtn.disabled = false;
-      }
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": window.location.href,
+        "X-Title": "RP Test Web"
+      },
+      body: JSON.stringify({
+        model: "deepseek/deepseek-chat",
+        messages: payloadMessages
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error?.message || `狀態碼: ${response.status}`);
     }
 
-    function parseAndRenderAIResponse(raw) {
-  // 只抓取好感度數值，不再比對表情文字
+    const reply = data.choices[0].message.content;
+    
+    // 記錄回覆進歷史陣列
+    messagesHistory.push({ role: "assistant", content: reply });
+    
+    // 解析回覆並渲染畫面
+    parseAndRenderAIResponse(reply);
+
+  } catch (err) {
+    appendMessage("ai", `[連線失敗] ${err.message}`);
+  } finally {
+    sendBtn.disabled = false;
+  }
+}
+
+// ==================== 3. 回覆解析函式 ====================
+function parseAndRenderAIResponse(raw) {
+  // 過濾偶爾可能混入的安全字樣
+  raw = raw.replace(/User Safety:.*|Response Safety:.*/gi, "").trim();
+
   const statusMatch = raw.match(/\[STATUS:\s*([+-]?\d+)\]/i);
   const thoughtMatch = raw.match(/\[THOUGHT:\s*(.*?)\]/i);
   const talkMatch = raw.match(/\[TALK:\s*([\s\S]*?)\]/i);
@@ -113,7 +148,10 @@ const currentMessages = [
   if (statusMatch) {
     const delta = parseInt(statusMatch[1], 10);
     currentAffinity += delta;
-    document.getElementById("affinity-display").innerText = currentAffinity;
+    const affinityDisplay = document.getElementById("affinity-display");
+    if (affinityDisplay) {
+      affinityDisplay.innerText = currentAffinity;
+    }
   }
 
   const thought = thoughtMatch ? thoughtMatch[1] : null;
@@ -122,39 +160,15 @@ const currentMessages = [
   appendMessage("ai", talk, thought);
 }
 
-    function appendMessage(role, text, thought = null) {
-      const box = document.getElementById("chat-box");
-      const msgDiv = document.createElement("div");
-      msgDiv.className = `msg ${role}`;
-
-      if (thought) {
-        const thoughtDiv = document.createElement("div");
-        thoughtDiv.className = "thought";
-        thoughtDiv.innerText = `(心理OS: ${thought})`;
-        msgDiv.appendChild(thoughtDiv);
-      }
-
-      const textDiv = document.createElement("div");
-      textDiv.innerText = text;
-      msgDiv.appendChild(textDiv);
-
-      box.appendChild(msgDiv);
-      box.scrollTop = box.scrollHeight;
-    }
-
-
-
-// 在這裡填入你的靜態頭像路徑（可以是本機圖片，例如 "avatar.png"，或網路圖片網址）
-const CHARACTER_AVATAR_URL = "avatar.png"; 
-
+// ==================== 4. 畫面渲染函式（單一標準版本） ====================
 function appendMessage(role, text, thought = null) {
   const box = document.getElementById("chat-box");
   
-  // 建立訊息外層容器 (Flex row)
+  // 外層 Row
   const row = document.createElement("div");
   row.className = `msg-row ${role}`;
 
-  // 如果是 AI 說話，在左側放頭像
+  // AI 訊息在左側顯示頭像
   if (role === "ai") {
     const avatarImg = document.createElement("img");
     avatarImg.src = CHARACTER_AVATAR_URL;
@@ -167,7 +181,7 @@ function appendMessage(role, text, thought = null) {
   const bubble = document.createElement("div");
   bubble.className = "bubble";
 
-  // 如果有心理 OS 就放進泡泡頂部
+  // 心理 OS
   if (thought) {
     const thoughtDiv = document.createElement("div");
     thoughtDiv.className = "thought";
@@ -175,7 +189,7 @@ function appendMessage(role, text, thought = null) {
     bubble.appendChild(thoughtDiv);
   }
 
-  // 實際對話文字
+  // 實際台詞
   const textDiv = document.createElement("div");
   textDiv.innerText = text;
   bubble.appendChild(textDiv);
@@ -183,6 +197,5 @@ function appendMessage(role, text, thought = null) {
   row.appendChild(bubble);
   box.appendChild(row);
   
-  // 自動捲動到底部
   box.scrollTop = box.scrollHeight;
 }
