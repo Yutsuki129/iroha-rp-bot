@@ -67,7 +67,7 @@
             "X-Title": "RP Test Web"
           },
           body: JSON.stringify({
-            model: "google/gemini-2.0-flash-lite",
+            model: "meta-llama/llama-3.3-70b-instruct",
             messages: messages
           })
         });
