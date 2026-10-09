@@ -67,7 +67,7 @@
             "X-Title": "RP Test Web"
           },
           body: JSON.stringify({
-            model: "meta-llama/llama-3.3-70b-instruct",
+            model: "deepseek/deepseek-chat",
             messages: messages
           })
         });
