@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>AI角色扮演</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>我的青春戀愛喜劇果然有問題</h1>
+  <p>你將扮演比企谷八幡，跟一色伊呂波互動，另外我有設告白事件，好感度達到一定值，你的告白就會成功，可以跟伊呂波交往，不過我不會告訴你是多少，呵呵呵~</p>
+  對了，好感度高低會影響伊呂波對你的態度，而且我沒有設置回朔，請認真對待每一次互動~
+  (備註:頁面刷新會導致記憶流失，有時也有API連接失效的問題，這種時候重新輸入就好，然後語言模型是用免費版本的，所以回復慢是正常的，想要好的體驗麻煩付錢給我~)
+  <br>
+  <div id="status-bar">
+    <strong>玩家：</strong>比企谷八幡 |
+    <strong>角色：</strong>一色伊呂波 | 
+    <strong>好感度：</strong><span id="affinity-display">50</span>
+  </div>
+
+  <div id="chat-box"></div>
+
+  <div class="input-row">
+    <input type="password" id="api-key" placeholder="在此輸入 OpenRouter API Key" style="max-width: 180px;">
+    <input type="text" id="user-input" placeholder="說點什麼...">
+    <button id="send-btn" onclick="handleSend()">發送</button>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
